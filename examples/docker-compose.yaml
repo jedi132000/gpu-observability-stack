@@ -1,0 +1,51 @@
+# Local demo stack: synthetic exporter -> Prometheus -> Grafana.
+#
+# This runs entirely on CPU with SYNTHETIC data (see synthetic_exporter.py). It
+# lets you validate the rules, alerts, and dashboards without a GPU. The data is
+# not real telemetry.
+#
+#   docker compose -f examples/docker-compose.yaml up
+#   # Grafana:    http://localhost:3000  (admin / admin)
+#   # Prometheus: http://localhost:9090
+#
+# Paths are relative to the repository root; run compose from there or with -f
+# as shown above.
+
+services:
+  synthetic-exporter:
+    image: python:3.12-slim
+    working_dir: /app
+    volumes:
+      - ./examples/synthetic_exporter.py:/app/synthetic_exporter.py:ro
+    command: >-
+      sh -c "pip install --no-cache-dir prometheus-client==0.21.0 &&
+             python synthetic_exporter.py --port 9400 --interval 5"
+    expose:
+      - "9400"
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    volumes:
+      - ./examples/prometheus-demo.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=2h
+    ports:
+      - "9090:9090"
+    depends_on:
+      - synthetic-exporter
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus

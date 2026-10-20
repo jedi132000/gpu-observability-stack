@@ -1,0 +1,85 @@
+# Alerting rules for GPU telemetry health and resource pressure.
+#
+# Timing rationale: 'for' durations are set long enough to ride out a single
+# missed scrape or a transient spike, so these do not flap under normal
+# operation. Severities: critical pages, warning is a ticket, info is dashboard
+# context only.
+groups:
+  - name: gpu.telemetry
+    rules:
+      - alert: DCGMExporterDown
+        # The exporter scrape target exists but is failing.
+        expr: up{job="dcgm-exporter"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "DCGM exporter target down on {{ $labels.instance }}"
+          description: >-
+            Prometheus cannot scrape the DCGM exporter at {{ $labels.instance }}
+            for 5 minutes. All GPU telemetry from this node is missing. Check the
+            dcgm-exporter pod and the ServiceMonitor/endpoint.
+
+      - alert: GPUTelemetryMissing
+        # No GPU utilization series at all — exporter up but producing nothing,
+        # or every target removed from discovery.
+        expr: absent(DCGM_FI_DEV_GPU_UTIL)
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No GPU telemetry in Prometheus"
+          description: >-
+            DCGM_FI_DEV_GPU_UTIL has been absent for 10 minutes. Either no GPU
+            nodes are present, the exporter is not exposing metrics, or service
+            discovery is broken. Verify with: gpuobs check-prometheus.
+
+  - name: gpu.resource
+    rules:
+      - alert: GPUMemoryPressureHigh
+        expr: gpu:fb_used_ratio > 0.90
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "GPU {{ $labels.gpu }} on {{ $labels.Hostname }} above 90% memory"
+          description: >-
+            Framebuffer usage has stayed above 90% for 15 minutes
+            (pod {{ $labels.pod }}, namespace {{ $labels.namespace }}). Risk of
+            out-of-memory kills on new allocations.
+
+      - alert: GPUMemoryPressureCritical
+        expr: gpu:fb_used_ratio > 0.98
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "GPU {{ $labels.gpu }} on {{ $labels.Hostname }} above 98% memory"
+          description: >-
+            Framebuffer usage has stayed above 98% for 10 minutes. Allocations
+            are very likely to fail. Investigate the workload on
+            {{ $labels.pod }} / {{ $labels.namespace }}.
+
+      - alert: GPUHighTemperatureSustained
+        expr: DCGM_FI_DEV_GPU_TEMP > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "GPU {{ $labels.gpu }} on {{ $labels.Hostname }} running hot"
+          description: >-
+            GPU temperature has exceeded 85C for 10 minutes, which can trigger
+            thermal throttling. Check node cooling and sustained load.
+
+      - alert: GPUXidErrorDetected
+        # XID errors indicate hardware/driver faults; report the last code seen.
+        expr: DCGM_FI_DEV_XID_ERRORS > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "XID error on GPU {{ $labels.gpu }} ({{ $labels.Hostname }})"
+          description: >-
+            DCGM reports XID error code {{ $value }} on this GPU for 5 minutes.
+            XID errors indicate GPU hardware or driver faults; cordon the node
+            and inspect dmesg / nvidia-smi. See docs/runbooks.md.

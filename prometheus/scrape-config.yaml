@@ -1,0 +1,27 @@
+# Plain Prometheus scrape config for a non-Operator Prometheus (the stanza you
+# would merge into prometheus.yml's `scrape_configs`). Use this when you run
+# Prometheus directly rather than via the Prometheus Operator/ServiceMonitor.
+#
+# It discovers DCGM exporter pods by annotation and fixes the job name to
+# "dcgm-exporter" so alert rules and `gpuobs` match.
+- job_name: dcgm-exporter
+  kubernetes_sd_configs:
+    - role: pod
+  relabel_configs:
+    # Keep only pods annotated for GPU metrics scraping.
+    - source_labels: [__meta_kubernetes_pod_label_app]
+      regex: nvidia-dcgm-exporter
+      action: keep
+    # Target the metrics port (9400) exposed by the exporter.
+    - source_labels: [__address__, __meta_kubernetes_pod_container_port_number]
+      regex: "([^:]+):\\d+;9400"
+      target_label: __address__
+      replacement: "$1:9400"
+      action: replace
+    - source_labels: [__meta_kubernetes_namespace]
+      target_label: namespace
+    - source_labels: [__meta_kubernetes_pod_node_name]
+      target_label: node
+    - source_labels: [__meta_kubernetes_pod_name]
+      target_label: pod
+  metric_relabel_configs: []

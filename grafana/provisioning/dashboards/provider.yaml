@@ -1,0 +1,15 @@
+# Grafana dashboard provider. Loads every dashboard JSON mounted at
+# /var/lib/grafana/dashboards (the demo compose mounts the repo's dashboards/
+# directory there; in Kubernetes the kube-prometheus-stack sidecar loads them
+# from labelled ConfigMaps instead).
+apiVersion: 1
+providers:
+  - name: gpu-dashboards
+    orgId: 1
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

@@ -1,0 +1,66 @@
+# Values overlay for the kube-prometheus-stack Helm chart.
+#
+# This repository does NOT re-implement Prometheus/Grafana/Alertmanager; it
+# configures the upstream kube-prometheus-stack chart to discover the DCGM
+# exporter and load the GPU rules and dashboards from this repo.
+#
+# Install (pin a chart version you have validated):
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm repo update
+#   helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+#     -n monitoring --create-namespace \
+#     --version 65.x.x \
+#     -f helm/kube-prometheus-stack-values.yaml
+
+prometheus:
+  prometheusSpec:
+    # Discover ServiceMonitors across namespaces regardless of the release label,
+    # so the DCGM ServiceMonitor in gpu-operator is picked up. Tighten this in
+    # production to match your label scheme.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    retention: 15d
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+
+# GPU alert and recording rules, delivered as PrometheusRule objects the
+# Operator will load. Keep these in sync with prometheus/rules/*.yaml.
+additionalPrometheusRulesMap:
+  gpu-rules:
+    groups:
+      - name: gpu.recording
+        interval: 30s
+        rules:
+          - record: gpu:fb_used_ratio
+            expr: DCGM_FI_DEV_FB_USED / (DCGM_FI_DEV_FB_USED + DCGM_FI_DEV_FB_FREE)
+          - record: namespace:gpu_util:avg
+            expr: avg by (namespace) (DCGM_FI_DEV_GPU_UTIL)
+          - record: fleet:gpu_util:avg
+            expr: avg(DCGM_FI_DEV_GPU_UTIL)
+      - name: gpu.telemetry
+        rules:
+          - alert: DCGMExporterDown
+            expr: up{job="dcgm-exporter"} == 0
+            for: 5m
+            labels: { severity: critical }
+            annotations:
+              summary: "DCGM exporter target down on {{ $labels.instance }}"
+              description: "No GPU telemetry from this node for 5 minutes."
+          - alert: GPUMemoryPressureHigh
+            expr: gpu:fb_used_ratio > 0.90
+            for: 15m
+            labels: { severity: warning }
+            annotations:
+              summary: "GPU {{ $labels.gpu }} on {{ $labels.Hostname }} above 90% memory"
+              description: "Framebuffer usage above 90% for 15 minutes."
+
+grafana:
+  # Load dashboards from ConfigMaps labelled grafana_dashboard=1 via the sidecar.
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      searchNamespace: ALL
+  defaultDashboardsEnabled: true

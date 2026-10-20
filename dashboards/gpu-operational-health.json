@@ -1,0 +1,142 @@
+{
+  "title": "GPU Operational Health",
+  "uid": "gpu-operational-health",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "tags": ["gpu", "dcgm", "health"],
+  "time": { "from": "now-12h", "to": "now" },
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Exporter targets down",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "count(up{job=\"dcgm-exporter\"} == 0) or vector(0)", "legendFormat": "down" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "GPUs over 90% memory",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "count(gpu:fb_used_ratio > 0.90) or vector(0)", "legendFormat": "gpus" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Active XID errors",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "count(DCGM_FI_DEV_XID_ERRORS > 0) or vector(0)", "legendFormat": "xid" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Hottest GPU",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "celsius" } },
+      "targets": [
+        { "refId": "A", "expr": "max(DCGM_FI_DEV_GPU_TEMP)", "legendFormat": "max temp" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "GPU temperature",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 80 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "DCGM_FI_DEV_GPU_TEMP",
+          "legendFormat": "{{Hostname}} gpu{{gpu}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "GPU power usage",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "watt" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "DCGM_FI_DEV_POWER_USAGE",
+          "legendFormat": "{{Hostname}} gpu{{gpu}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Framebuffer utilization vs pressure thresholds",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 15 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 0.9 },
+              { "color": "red", "value": 0.98 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "gpu:fb_used_ratio",
+          "legendFormat": "{{Hostname}} gpu{{gpu}}"
+        }
+      ]
+    }
+  ]
+}

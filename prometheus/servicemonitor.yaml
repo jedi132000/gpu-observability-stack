@@ -1,0 +1,36 @@
+# ServiceMonitor for the NVIDIA DCGM Exporter, for use with the Prometheus
+# Operator (kube-prometheus-stack). The GPU Operator ships the dcgm-exporter
+# Service with the labels selected below; adjust the selector to match your
+# install if you renamed it.
+#
+# The `job` relabeling pins the scrape job to "dcgm-exporter" so the alert
+# rules (up{job="dcgm-exporter"}) and `gpuobs check-prometheus --job` match.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: dcgm-exporter
+  namespace: gpu-operator
+  labels:
+    app.kubernetes.io/name: dcgm-exporter
+    # Must match the Prometheus `serviceMonitorSelector`. kube-prometheus-stack
+    # selects release=<name> by default; set this to your release label.
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames:
+      - gpu-operator
+  selector:
+    matchLabels:
+      app: nvidia-dcgm-exporter
+  endpoints:
+    - port: gpu-metrics
+      interval: 15s
+      scrapeTimeout: 10s
+      path: /metrics
+      relabelings:
+        - action: replace
+          targetLabel: job
+          replacement: dcgm-exporter
+        # Carry the node name through as a stable label for per-node panels.
+        - sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: node

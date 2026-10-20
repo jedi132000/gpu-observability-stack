@@ -1,0 +1,27 @@
+# Recording rules derived from DCGM Exporter metrics.
+#
+# DCGM does not publish a total-framebuffer gauge, so memory ratio is computed
+# from used + free (which share an identical label set, making the vector
+# division element-wise and label-safe).
+groups:
+  - name: gpu.recording
+    interval: 30s
+    rules:
+      # Per-GPU framebuffer utilization in [0,1].
+      - record: gpu:fb_used_ratio
+        expr: |
+          DCGM_FI_DEV_FB_USED
+            /
+          (DCGM_FI_DEV_FB_USED + DCGM_FI_DEV_FB_FREE)
+
+      # Per-namespace mean GPU compute utilization (requires pod mapping labels).
+      - record: namespace:gpu_util:avg
+        expr: avg by (namespace) (DCGM_FI_DEV_GPU_UTIL)
+
+      # Fleet-wide mean GPU compute utilization.
+      - record: fleet:gpu_util:avg
+        expr: avg(DCGM_FI_DEV_GPU_UTIL)
+
+      # Count of GPUs reporting telemetry, by node.
+      - record: node:gpus_reporting:count
+        expr: count by (Hostname) (DCGM_FI_DEV_GPU_UTIL)

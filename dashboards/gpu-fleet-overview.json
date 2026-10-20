@@ -1,0 +1,107 @@
+{
+  "title": "GPU Fleet Overview",
+  "uid": "gpu-fleet-overview",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "tags": ["gpu", "dcgm"],
+  "time": { "from": "now-6h", "to": "now" },
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "node",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(DCGM_FI_DEV_GPU_UTIL, Hostname)",
+        "includeAll": true,
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Fleet mean GPU utilization",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 } },
+      "targets": [
+        { "refId": "A", "expr": "fleet:gpu_util:avg", "legendFormat": "mean util" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "GPUs reporting telemetry",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "count(DCGM_FI_DEV_GPU_UTIL)", "legendFormat": "gpus" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Exporter targets up",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "sum(up{job=\"dcgm-exporter\"})", "legendFormat": "up" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Peak framebuffer utilization",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } },
+      "targets": [
+        { "refId": "A", "expr": "max(gpu:fb_used_ratio)", "legendFormat": "max mem" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "GPU utilization by node",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "avg by (Hostname) (DCGM_FI_DEV_GPU_UTIL{Hostname=~\"$node\"})",
+          "legendFormat": "{{Hostname}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Framebuffer utilization by GPU",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "gpu:fb_used_ratio{Hostname=~\"$node\"}",
+          "legendFormat": "{{Hostname}} gpu{{gpu}}"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+name: ci
+
+# Static validation and tests only. No cluster, cloud, or GPU is involved.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: python (lint, type, test)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e '.[dev]'
+      - run: ruff check src tests
+      - run: mypy
+      - run: pytest -q
+
+  promtool:
+    name: promtool (rule syntax)
+    runs-on: ubuntu-latest
+    env:
+      PROM_VERSION: "2.54.1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install promtool
+        run: |
+          curl -sSLo prom.tar.gz \
+            "https://github.com/prometheus/prometheus/releases/download/v${PROM_VERSION}/prometheus-${PROM_VERSION}.linux-amd64.tar.gz"
+          tar xf prom.tar.gz
+          sudo mv "prometheus-${PROM_VERSION}.linux-amd64/promtool" /usr/local/bin/
+      - run: promtool check rules prometheus/rules/*.yaml
+
+  secrets:
+    name: secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"

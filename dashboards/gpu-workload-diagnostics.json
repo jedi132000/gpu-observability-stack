@@ -1,0 +1,95 @@
+{
+  "title": "GPU Workload Diagnostics",
+  "uid": "gpu-workload-diagnostics",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "tags": ["gpu", "dcgm", "workloads"],
+  "time": { "from": "now-6h", "to": "now" },
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(DCGM_FI_DEV_GPU_UTIL, namespace)",
+        "includeAll": true,
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "About",
+      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+      "options": {
+        "mode": "markdown",
+        "content": "Workload panels require DCGM pod-mapping labels (`namespace`, `pod`). If these are empty, enable Kubernetes pod mapping on the exporter (see docs/metrics.md)."
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "GPU utilization by pod",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 3 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "DCGM_FI_DEV_GPU_UTIL{namespace=~\"$namespace\"}",
+          "legendFormat": "{{namespace}}/{{pod}} gpu{{gpu}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Framebuffer used (MiB) by pod",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 3 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "decmbytes" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "DCGM_FI_DEV_FB_USED{namespace=~\"$namespace\"}",
+          "legendFormat": "{{namespace}}/{{pod}} gpu{{gpu}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "bargauge",
+      "title": "Mean GPU utilization by namespace",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "namespace:gpu_util:avg{namespace=~\"$namespace\"}",
+          "legendFormat": "{{namespace}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Sustained saturation (30m avg utilization)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "avg_over_time(DCGM_FI_DEV_GPU_UTIL{namespace=~\"$namespace\"}[30m])",
+          "legendFormat": "{{namespace}}/{{pod}} gpu{{gpu}}"
+        }
+      ]
+    }
+  ]
+}

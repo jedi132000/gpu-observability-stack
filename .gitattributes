@@ -1,0 +1,3 @@
+# Normalize line endings. Keep LF everywhere so YAML, shell scripts, and JSON
+# behave identically on Linux CI and Windows checkouts.
+* text=auto eol=lf

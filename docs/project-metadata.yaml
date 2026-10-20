@@ -1,0 +1,76 @@
+# Machine-readable project metadata. Kept in sync with the implementation.
+schema_version: 1
+name: gpu-observability-stack
+domain: gpu-observability
+summary: >-
+  GPU telemetry and monitoring for Kubernetes inference infrastructure using the
+  NVIDIA DCGM Exporter, Prometheus, and Grafana. Ships recording rules, alerts,
+  three dashboards, a Python validator for the telemetry pipeline, and a
+  CPU-only demo driven by clearly-labeled synthetic metrics.
+
+capabilities:
+  - Prometheus recording rules (framebuffer ratio, per-namespace/fleet util)
+  - Alert rules for exporter-down, missing telemetry, memory pressure, thermal, XID
+  - ServiceMonitor and plain scrape config pinned to the dcgm-exporter job
+  - Three provisioned Grafana dashboards (fleet, workload, operational health)
+  - kube-prometheus-stack values overlay (no reinvented Prometheus/Grafana)
+  - gpuobs validator - connectivity, scrape health, metric/label discovery
+  - CPU-only demo (synthetic exporter + docker-compose) with synthetic labeling
+
+tech_stack:
+  telemetry: [nvidia-dcgm-exporter]
+  monitoring: [prometheus, grafana, alertmanager]
+  packaging: [helm, kube-prometheus-stack]
+  language: [python]
+  cli: [typer]
+  client: [prometheus-client]
+
+execution_modes:
+  - name: local-demo
+    requires_gpu: false
+    description: docker-compose synthetic exporter + Prometheus + Grafana.
+  - name: validate
+    requires_gpu: false
+    description: gpuobs against a live Prometheus or exporter endpoint.
+  - name: kubernetes
+    requires_gpu: true
+    description: Helm values + ServiceMonitor against a GPU cluster.
+
+integration_points:
+  - name: dcgm-telemetry
+    direction: consumes
+    producer: gpu-kubernetes-platform
+    contract: DCGM Exporter /metrics deployed by the NVIDIA GPU Operator.
+  - name: capacity-signals
+    direction: informs
+    consumer: gpu-scheduler-capacity-lab
+    contract: Observed utilization/pressure can seed capacity scenarios (manual).
+
+related_repositories:
+  - jedi132000/gpu-kubernetes-platform
+  - jedi132000/gpu-scheduler-capacity-lab
+
+tested_environments:
+  - tool: pytest
+    version: "9.x"
+    checks: [parse, checks, rules, dashboards, cli]
+    status: passed
+  - tool: ruff
+    version: "0.17.0"
+    checks: [lint]
+    status: passed
+  - tool: mypy
+    version: "2.4.0"
+    checks: [strict-type-check]
+    status: passed
+  - tool: promtool
+    version: "ci-only"
+    checks: [check-rules]
+    status: ci
+
+known_limitations:
+  - No GPU hardware was available; rules/dashboards validated structurally and
+    against synthetic data, not real DCGM metrics.
+  - Queries assume DCGM Exporter metric names; another exporter needs changes.
+  - Memory is tracked as framebuffer used/free, not per-process attribution.
+  - Demo data is synthetic and labeled as such; it tests wiring, not hardware.
